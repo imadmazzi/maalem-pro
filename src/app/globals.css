@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+:root {
+  --background: #020617;
+  --foreground: #e2e8f0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter), sans-serif;
+  --font-cairo: var(--font-cairo), sans-serif;
+  --color-brand-blue: #002366;
+  --color-brand-green: #3EB489;
+  --color-status-paid: #2ecc71;
+  --color-status-unpaid: #e74c3c;
+  --color-status-draft: #95a5a6;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-float-delayed: float 7s ease-in-out infinite 1s;
+  --animate-float-slow: float 8s ease-in-out infinite 2s;
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ══════════════════════════════════════════════════════
+   EMERGENCY UNLOCK — ensures no decorative element can
+   ever block clicks. Real modals use role="dialog" or
+   data-modal="true" and are excluded from this rule.
+══════════════════════════════════════════════════════ */
+
+/* Background decoration layer — never intercept */
+body>div:first-child,
+body>div:first-child * {
+  pointer-events: none !important;
+}
+
+/* Any fixed/absolute div that lacks role="dialog" and
+   is not a nav/button/input is click-through          */
+div[style*="position: fixed"]:not([role="dialog"]):not([data-modal]),
+div[style*="position:fixed"]:not([role="dialog"]):not([data-modal]) {
+  /* only override if it looks like a pure overlay
+     (no width/height constraints = full screen)       */
+}
+
+/* Nuclear: ensure nav, buttons, links, inputs always work */
+nav,
+nav *,
+main,
+main *,
+button,
+a,
+input,
+select,
+textarea,
+[role="button"],
+[role="dialog"],
+[role="dialog"] * {
+  pointer-events: auto !important;
+}
