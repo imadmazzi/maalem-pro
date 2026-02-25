@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Plus, FileText, CheckCircle, Clock, AlertCircle, DollarSign, ArrowUpRight, ChevronRight, MoreHorizontal, Lock, Crown, X, Wallet, Search, CalendarDays, MessageCircle, Briefcase, Wrench, Banknote, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Quote } from '@/lib/types';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 
 /* ─────────────────────────────────────────────────────────
@@ -115,38 +115,27 @@ function UpcomingEventsWidget({ language }: { language: string }) {
 
 export default function Dashboard() {
     const router = useRouter();
+    const pathname = usePathname();
     const { t, language } = useLanguage();
     const { quotes, updateQuote, clients } = useData();
-    const { user, profileComplete, isLoading: authLoading } = useAuth();
+    const { user, profile, profileComplete, isLoading: authLoading } = useAuth();
     const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
     const [showProfileAlert, setShowProfileAlert] = useState(false);
-    const [userName, setUserName] = useState('');
     const [selectedClientId, setSelectedClientId] = useState<string>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'accepted' | 'cancelled'>('all');
     const [searchQuery, setSearchQuery] = useState('');
 
+    const userName = profile?.business_name || user?.user_metadata?.full_name || '';
+
     useEffect(() => {
         if (authLoading) return;
 
-        // ── STRICT AUTH CHECK: If no session, redirect to login ──
-        if (!user) {
-            router.replace('/login');
-            return;
-        }
-
         // ── If profile incomplete → onboarding ──
-        if (user && !profileComplete) {
+        if (user && !profileComplete && pathname !== '/complete-profile') {
             router.replace('/complete-profile');
             return;
         }
-
-        // ── Read display name from supabse profile or local storage fallback ──
-        const savedProfile = localStorage.getItem('businessProfile');
-        if (savedProfile) {
-            const p = JSON.parse(savedProfile);
-            setUserName(p.name || '');
-        }
-    }, [user, profileComplete, authLoading, router]);
+    }, [user, profileComplete, authLoading, router, pathname]);
 
 
 

@@ -131,17 +131,7 @@ export default function CompleteProfilePage() {
                 return;
             }
 
-            // ── 6. Sync Local State & Context ──────────────────
-            localStorage.setItem('businessProfile', JSON.stringify({
-                name: form.business_name.trim(),
-                email: freshUser.email || '',
-                phone: form.phone.trim(),
-                address: form.address.trim(),
-                category: form.category,
-                avatar: freshUser.user_metadata?.avatar_url || '',
-            }));
-            localStorage.setItem('isAuthenticated', 'true');
-
+            // ── 6. Sync Context ──────────────────
             await refreshProfile();
             setDone(true);
             setIsSubmitting(false);

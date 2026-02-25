@@ -14,26 +14,14 @@ export function Navigation() {
     const { language, setLanguage, t } = useLanguage();
     const pathname = usePathname();
     const { isSyncing } = useData();
-    const { signOut } = useAuth();
+    const { signOut, user, profile } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
-    const [isAuthenticated, setIsAuthenticated] = React.useState(false);
-    const [userName, setUserName] = React.useState('');
     const [isCardModalOpen, setIsCardModalOpen] = React.useState(false);
 
-    React.useEffect(() => {
-        // Check auth status on mount
-        const authStatus = localStorage.getItem('isAuthenticated');
-        setIsAuthenticated(!!authStatus);
-
-        const profile = localStorage.getItem('businessProfile');
-        if (profile) {
-            const parsed = JSON.parse(profile);
-            setUserName(parsed.name || '');
-        }
-    }, [pathname]); // Re-check on route change
+    const isAuthenticated = !!user;
+    const userName = profile?.business_name || user?.user_metadata?.full_name || '';
 
     const handleLogout = async () => {
-        setIsAuthenticated(false);
         await signOut();
     };
 

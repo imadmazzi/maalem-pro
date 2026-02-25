@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { Client, Service, Quote } from '@/lib/types';
 import { usePathname } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { useAuth } from './AuthContext';
 
 // ─────────────────────────────────────────────────────────
 //  helpers
@@ -52,26 +53,18 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 // ─────────────────────────────────────────────────────────
 export function DataProvider({ children }: { children: ReactNode }) {
     const pathname = usePathname();
+    const { user } = useAuth();
 
     const [clients, setClients] = useState<Client[]>([]);
     const [services, setServices] = useState<Service[]>([]);
     const [quotes, setQuotes] = useState<Quote[]>([]);
     const [subscription, setSubscription] = useState<'FREE' | 'PRO'>('FREE');
     const [isSyncing, setIsSyncing] = useState(false);
-    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [isLoaded, setIsLoaded] = useState(false);
 
-    console.log('DEBUG: DataContext initialized ✅', { isSupabaseConfigured });
+    const currentUserId = user?.id || null;
 
-    // ── Resolve userId from businessProfile ──────────────
-    const resolveUserId = (): string | null => {
-        try {
-            const raw = localStorage.getItem('businessProfile');
-            if (!raw) return null;
-            const p = JSON.parse(raw);
-            return p.email || p.phone || null;
-        } catch { return null; }
-    };
+    console.log('DEBUG: DataContext initialized ✅', { isSupabaseConfigured, userId: currentUserId });
 
     // ── Load from localStorage (synchronous — instant UI) ──
     const loadFromLocal = useCallback((userId: string) => {
@@ -102,14 +95,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
             if (clientsRes) {
                 const r = clientsRes as any;
-                if (!r.error && Array.isArray(r.data) && r.data.length > 0) {
+                if (!r.error && Array.isArray(r.data)) {
                     setClients(r.data);
                     localStorage.setItem(`data_${userId}_clients`, JSON.stringify(r.data));
                 }
             }
             if (quotesRes) {
                 const r = quotesRes as any;
-                if (!r.error && Array.isArray(r.data) && r.data.length > 0) {
+                if (!r.error && Array.isArray(r.data)) {
                     setQuotes(r.data);
                     localStorage.setItem(`data_${userId}_quotes`, JSON.stringify(r.data));
                 }
@@ -123,18 +116,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     // ── Initial load on mount / route change ───────────
     useEffect(() => {
-        const userId = resolveUserId();
-        if (!userId) {
+        if (!currentUserId) {
             setClients([]); setServices([]); setQuotes([]);
             setIsLoaded(true);
             return;
         }
-        setCurrentUserId(userId);
-        loadFromLocal(userId);   // ← instant, synchronous
+        loadFromLocal(currentUserId);   // ← instant, synchronous
         setIsLoaded(true);
-        syncFromSupabase(userId); // ← background, non-blocking
+        syncFromSupabase(currentUserId); // ← background, non-blocking
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pathname]);
+    }, [pathname, currentUserId]);
 
     // ── Persist to localStorage ──────────────────────────
     useEffect(() => {

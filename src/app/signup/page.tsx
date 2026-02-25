@@ -1,15 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { User, Lock, Mail, Phone, Briefcase, Loader2, Zap, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SignupPage() {
     const router = useRouter();
+    const { signUp, user, isLoading: authLoading } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [error, setError] = useState('');
 
     const [formData, setFormData] = useState({
         fullName: '',
@@ -19,36 +22,35 @@ export default function SignupPage() {
         password: ''
     });
 
+    useEffect(() => {
+        if (user && !authLoading) {
+            router.push('/dashboard');
+        }
+    }, [user, authLoading, router]);
+
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
+        setError('');
 
-        // Simulate signup API call
-        setTimeout(() => {
-            // 1. Save User Data (Simulate Backend)
-            const userData = { ...formData, createdAt: new Date().toISOString() };
-            localStorage.setItem('registeredUser', JSON.stringify(userData));
+        const { error: signUpError } = await signUp(formData.email, formData.password, {
+            full_name: formData.fullName,
+            category: formData.category,
+            phone: formData.phone
+        });
 
-            // 2. Auto-Login (Set Session)
-            localStorage.setItem('isAuthenticated', 'true');
-            // Optional: Store profile for Dashboard customization
-            localStorage.setItem('businessProfile', JSON.stringify({
-                name: formData.fullName,
-                phone: formData.phone,
-                address: 'Maroc', // Default
-                email: formData.email,
-                category: formData.category
-            }));
-
+        if (signUpError) {
             setIsLoading(false);
-            console.log('Signup successful:', userData);
+            setError(signUpError.message);
+            return;
+        }
 
-            // 3. Show Success & Redirect
-            setShowSuccess(true);
-            setTimeout(() => {
-                router.push('/dashboard');
-            }, 2000); // Wait 2s for popup
-        }, 1500);
+        setIsLoading(false);
+        setShowSuccess(true);
+        // After signup, we wait for user to confirm email or if auto-confirm is on, we redirect
+        setTimeout(() => {
+            router.push('/complete-profile');
+        }, 2000);
     };
 
     const categories = [
@@ -122,6 +124,13 @@ export default function SignupPage() {
 
                     {/* Form */}
                     <form onSubmit={handleSignup} className="space-y-5 mt-8" dir="rtl">
+
+                        {/* Error */}
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm text-center">
+                                {error}
+                            </div>
+                        )}
 
                         {/* Full Name */}
                         <div className="space-y-1">

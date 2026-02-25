@@ -20,7 +20,7 @@ function GoogleIcon() {
 
 export default function LoginPage() {
     const router = useRouter();
-    const { signInWithGoogle, user, isLoading: authLoading } = useAuth();
+    const { signInWithGoogle, signInWithEmail, user, isLoading: authLoading } = useAuth();
 
     const [isLoading, setIsLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
@@ -29,59 +29,42 @@ export default function LoginPage() {
     const [formData, setFormData] = useState({ identifier: '', password: '' });
     const [error, setError] = useState('');
 
-    // If already authenticated (Supabase session or localStorage), redirect
+    // If already authenticated, redirect
     useEffect(() => {
-        if (user) { router.push('/dashboard'); return; }
-        const auth = localStorage.getItem('isAuthenticated');
-        if (auth) router.push('/dashboard');
-    }, [user, router]);
+        if (user && !authLoading) {
+            router.push('/dashboard');
+        }
+    }, [user, authLoading, router]);
 
     // ── Google sign-in ────────────────────────────────────
     const handleGoogleSignIn = async () => {
         setGoogleLoading(true);
         setError('');
-        await signInWithGoogle();
-        // Page will redirect to Google — no need to setGoogleLoading(false)
+        try {
+            await signInWithGoogle();
+        } catch (e: any) {
+            setError(e.message || 'Une erreur est survenue');
+            setGoogleLoading(false);
+        }
     };
 
-    // ── Email / phone sign-in (existing localStorage logic) ──
+    // ── Email sign-in ──
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         setError('');
 
-        await new Promise(r => setTimeout(r, 800));
+        const { error: loginError } = await signInWithEmail(formData.identifier, formData.password);
 
-        const registeredUserStr = localStorage.getItem('registeredUser');
-        let isAuthenticated = false;
-
-        if (registeredUserStr) {
-            const reg = JSON.parse(registeredUserStr);
-            if (
-                (formData.identifier === reg.email || formData.identifier === reg.phone) &&
-                formData.password === reg.password
-            ) isAuthenticated = true;
+        if (loginError) {
+            setIsLoading(false);
+            setError(loginError.message === 'Invalid login credentials' 
+                ? 'Identifiants incorrects. Vérifiez votre email et mot de passe.' 
+                : loginError.message);
         } else {
-            isAuthenticated = true; // demo / first-time
-        }
-
-        if (isAuthenticated) {
-            localStorage.setItem('isAuthenticated', 'true');
-            if (!localStorage.getItem('businessProfile')) {
-                localStorage.setItem('businessProfile', JSON.stringify({
-                    name: 'Utilisateur Démo',
-                    phone: formData.identifier,
-                    address: 'Maroc',
-                    email: formData.identifier.includes('@') ? formData.identifier : '',
-                    category: 'General',
-                }));
-            }
             setIsLoading(false);
             setShowSuccess(true);
             setTimeout(() => router.push('/dashboard'), 1200);
-        } else {
-            setIsLoading(false);
-            setError('Identifiants incorrects. Essayez de créer un compte.');
         }
     };
 

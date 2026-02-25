@@ -5,15 +5,12 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Zap, Play, CheckCircle, FileText, Smartphone, LayoutTemplate, Send, Shield, Users, Briefcase, Settings, Star, Crown } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function LandingPage() {
   const { language } = useLanguage();
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
-
-  React.useEffect(() => {
-    const auth = localStorage.getItem('isAuthenticated');
-    setIsAuthenticated(!!auth);
-  }, []);
+  const { user } = useAuth();
+  const isAuthenticated = !!user;
 
   return (
     <div className="font-sans text-slate-200 bg-[#0F172A] min-h-screen overflow-x-hidden">

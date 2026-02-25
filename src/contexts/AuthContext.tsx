@@ -23,6 +23,8 @@ interface AuthContextType {
     profileComplete: boolean;          // true when business_name is filled
     isLoading: boolean;
     signInWithGoogle: () => Promise<void>;
+    signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
+    signUp: (email: string, password: string, metadata: any) => Promise<{ error: any }>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>; // call after completing profile form
 }
@@ -42,44 +44,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // ── Load profile from Supabase for a given user ─────────────────────────
     const loadProfile = useCallback(async (u: User) => {
         if (!supabase) return;
-        console.log('[Auth] Fetching profile for user:', u.id);
-        const { data, error, status } = await supabase
+        const { data, error } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', u.id)
             .maybeSingle();
 
         if (error) {
-            console.warn('[Auth] profiles fetch error:', error.message, '| status:', status);
+            console.warn('[Auth] profiles fetch error:', error.message);
         }
 
         const p = data as SupabaseProfile | null;
-        console.log('[Auth] Profile loaded:', p ? `✅ Found (${p.business_name})` : '⚪ No profile found');
-
         setProfile(p);
         setProfileComplete(!!p?.business_name);
 
-        // Sync to localStorage.businessProfile so existing pages work
-        syncToLocalStorage(u, p);
+        // Sync essential profile info for PDF generator/UI that still expects it
+        if (p) {
+            localStorage.setItem('businessProfile', JSON.stringify({
+                name: p.business_name || u.user_metadata?.full_name || u.email?.split('@')[0] || 'Maalem',
+                email: p.email || u.email || '',
+                phone: p.phone || '',
+                address: p.address || '',
+                category: p.category || 'General',
+                avatar: p.avatar_url || u.user_metadata?.avatar_url || '',
+            }));
+        }
     }, []);
-
-    // ── Sync Supabase user + profile → localStorage businessProfile ──────────
-    const syncToLocalStorage = (u: User, p: SupabaseProfile | null) => {
-        const existing = localStorage.getItem('businessProfile');
-        const local = existing ? JSON.parse(existing) : {};
-
-        const updated = {
-            name: p?.business_name || local.name || u.user_metadata?.full_name || u.email?.split('@')[0] || 'Maalem',
-            email: p?.email || local.email || u.email || '',
-            phone: p?.phone || local.phone || u.user_metadata?.phone || '',
-            address: p?.address || local.address || '',
-            category: p?.category || local.category || 'General',
-            avatar: p?.avatar_url || u.user_metadata?.avatar_url || local.avatar || '',
-        };
-
-        localStorage.setItem('businessProfile', JSON.stringify(updated));
-        localStorage.setItem('isAuthenticated', 'true');
-    };
 
     // ── refreshProfile — call after the complete-profile form saves ──────────
     const refreshProfile = useCallback(async () => {
@@ -93,77 +83,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
-            const s = data.session;
+        const initAuth = async () => {
+            const { data: { session: s } } = await supabase.auth.getSession();
             setSession(s);
             setUser(s?.user ?? null);
             if (s?.user) {
-                loadProfile(s.user).then(() => setIsLoading(false));
-            } else {
-                setIsLoading(false);
+                await loadProfile(s.user);
             }
-        });
+            setIsLoading(false);
+        };
+
+        initAuth();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (_event: string, s: Session | null) => {
+            async (_event: string, s: Session | null) => {
                 setSession(s);
                 setUser(s?.user ?? null);
                 if (s?.user) {
-                    loadProfile(s.user);
-                    localStorage.setItem('isAuthenticated', 'true');
+                    await loadProfile(s.user);
                 } else {
                     setProfile(null);
                     setProfileComplete(false);
-                    localStorage.removeItem('isAuthenticated');
+                    localStorage.removeItem('businessProfile');
                 }
+                setIsLoading(false);
             }
         );
 
         return () => subscription.unsubscribe();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [loadProfile]);
+
+    // ── Email/Password Sign In ──────────────────────────────────────────────
+    const signInWithEmail = async (email: string, password: string) => {
+        if (!supabase) return { error: { message: 'Supabase not configured' } };
+        return await supabase.auth.signInWithPassword({ email, password });
+    };
+
+    // ── Email/Password Sign Up ──────────────────────────────────────────────
+    const signUp = async (email: string, password: string, metadata: any) => {
+        if (!supabase) return { error: { message: 'Supabase not configured' } };
+        return await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: metadata }
+        });
+    };
 
     // ── Google OAuth ─────────────────────────────────────────────────────────
     const signInWithGoogle = async () => {
-        if (!isSupabaseConfigured || !supabase) {
-            console.error('[Auth] Supabase not configured');
-            return;
-        }
-
-        /** Normalize 0.0.0.0 → localhost so OAuth redirect works in dev */
-        const getSafeOrigin = () =>
-            window.location.origin.replace('//0.0.0.0', '//localhost');
-
-        const redirectTo = `${getSafeOrigin()}/dashboard`;
-        console.log('[Auth] OAuth redirectTo:', redirectTo);
-
-        const { error } = await supabase.auth.signInWithOAuth({
+        if (!isSupabaseConfigured || !supabase) return;
+        const getSafeOrigin = () => window.location.origin.replace('//0.0.0.0', '//localhost');
+        const redirectTo = `${getSafeOrigin()}/auth/callback`;
+        await supabase.auth.signInWithOAuth({
             provider: 'google',
-            options: {
-                redirectTo,
-                queryParams: { access_type: 'offline', prompt: 'consent' },
-            },
+            options: { redirectTo, queryParams: { access_type: 'offline', prompt: 'consent' } },
         });
-        if (error) console.error('[Auth] Google sign-in error:', error);
     };
 
     // ── Sign Out ─────────────────────────────────────────────────────────────
     const signOut = async () => {
         if (supabase) await supabase.auth.signOut();
-        localStorage.removeItem('isAuthenticated');
-        localStorage.removeItem('businessProfile'); // Clear local cache on logout
+        localStorage.removeItem('businessProfile');
         setUser(null);
         setSession(null);
         setProfile(null);
         setProfileComplete(false);
-        // Using window.location.href for a hard redirect to clear all states/cache
-        window.location.href = '/login';
+        router.replace('/login');
     };
 
     return (
         <AuthContext.Provider value={{
             user, session, profile, profileComplete,
-            isLoading, signInWithGoogle, signOut, refreshProfile,
+            isLoading, signInWithGoogle, signInWithEmail, signUp, signOut, refreshProfile,
         }}>
             {children}
         </AuthContext.Provider>

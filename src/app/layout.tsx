@@ -26,34 +26,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="ar" dir="rtl" className="bg-[#0F172A]">
       <body className={`${inter.variable} ${plusJakarta.variable} ${cairo.variable} ${readex.variable} antialiased bg-[#0F172A] text-slate-200 font-cairo min-h-screen w-full overflow-x-hidden`}>
 
-        {/* DEBUG: runs immediately — open browser console to see which element is on top */}
-        <script dangerouslySetInnerHTML={{
-          __html: `
-          window.addEventListener('load', function() {
-            setTimeout(function() {
-              var all = document.querySelectorAll('*');
-              var fixed = [];
-              for (var i = 0; i < all.length; i++) {
-                var cs = window.getComputedStyle(all[i]);
-                if (cs.position === 'fixed' || cs.position === 'sticky') {
-                  fixed.push({
-                    tag: all[i].tagName,
-                    cls: all[i].className.toString().slice(0, 80),
-                    z: cs.zIndex,
-                    pe: cs.pointerEvents,
-                    bg: cs.backgroundColor,
-                    w: all[i].offsetWidth,
-                    h: all[i].offsetHeight
-                  });
-                }
-              }
-              console.warn('🚨 ALL FIXED/STICKY ELEMENTS:', JSON.stringify(fixed, null, 2));
-              var top = document.elementFromPoint(window.innerWidth/2, window.innerHeight/2);
-              if (top) console.warn('🎯 TOP ELEMENT AT CENTER:', top.tagName, top.className.toString().slice(0,100), window.getComputedStyle(top).pointerEvents);
-            }, 2000);
-          });
-        ` }} />
-
         {/* Background decoration — pointer-events-none so NOTHING can block clicks */}
         <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', inset: 0, opacity: 0.4, background: 'linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px)', backgroundSize: '40px 40px' }} />
