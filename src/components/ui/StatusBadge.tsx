@@ -139,7 +139,7 @@ export function StatusBadge({ status, invoiceId }: StatusBadgeProps) {
 
             {/* Dropdown Menu */}
             {isOpen && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-32 bg-[#1E293B] border border-slate-700/50 rounded-lg shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-32 bg-[#1E293B] border border-slate-700/50 rounded-lg shadow-xl z-50 overflow-hidden animate-in fade-in duration-100 origin-top">
                     <div className="p-1 space-y-0.5">
                         {OPTIONS.map((opt) => {
                             const config = getStatusConfig(opt);

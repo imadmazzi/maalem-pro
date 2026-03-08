@@ -14,45 +14,36 @@ export function Navigation() {
     const { language, setLanguage, t } = useLanguage();
     const pathname = usePathname();
     const { isSyncing } = useData();
-    const { signOut } = useAuth();
+    const { user, profile, isLoading: authLoading, signOut } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
-    const [isAuthenticated, setIsAuthenticated] = React.useState(false);
-    const [userName, setUserName] = React.useState('');
     const [isCardModalOpen, setIsCardModalOpen] = React.useState(false);
 
-    React.useEffect(() => {
-        // Check auth status on mount
-        const authStatus = localStorage.getItem('isAuthenticated');
-        setIsAuthenticated(!!authStatus);
-
-        const profile = localStorage.getItem('businessProfile');
-        if (profile) {
-            const parsed = JSON.parse(profile);
-            setUserName(parsed.name || '');
-        }
-    }, [pathname]); // Re-check on route change
+    const isAuthenticated = !!user;
+    const userName = profile?.business_name || user?.user_metadata?.full_name || '';
 
     const handleLogout = async () => {
-        setIsAuthenticated(false);
         await signOut();
     };
-
-    if (pathname?.startsWith('/login')) return null;
 
     const toggleLanguage = () => {
         setLanguage(language === 'fr' ? 'ar' : 'fr');
     };
 
-    const isLandingPage = pathname === '/';
+    const normalizedPath = pathname?.toLowerCase() || '';
+    const isAuthRoute = normalizedPath.includes('signup') || normalizedPath.includes('login') || normalizedPath.includes('complete-profile');
+    const isLandingPage = normalizedPath === '/' || normalizedPath === '';
 
-    const navItems = isLandingPage ? [] : [
+    // DEFENSIVE: Links should only show if user is logged in AND not on an auth/landing page
+    const shouldShowProtectedLinks = isAuthenticated && !isAuthRoute && !isLandingPage;
+
+    const navItems = shouldShowProtectedLinks ? [
         { label: language === 'ar' ? 'لوحة التحكم' : 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
         { label: language === 'ar' ? 'فواتير / دوفيات' : 'Factures / Devis', href: '/quotes/new', icon: FileText },
         { label: language === 'ar' ? 'المواعيد' : 'Calendrier', href: '/calendar', icon: CalendarDays },
         { label: language === 'ar' ? 'قائمة السلعة' : 'Liste Matériaux', href: '/dashboard/shopping-list', icon: ShoppingCart },
         { label: language === 'ar' ? 'الزبناء' : 'Clients', href: '/clients', icon: Users },
         { label: language === 'ar' ? 'الإعدادات' : 'Paramètres', href: '/settings', icon: Settings },
-    ];
+    ] : [];
 
     return (
         <>
@@ -71,7 +62,7 @@ export function Navigation() {
                             <img
                                 src="/logo.png"
                                 alt="MaalemPro Logo"
-                                className="h-20 w-auto object-contain scale-[2.0] origin-left rtl:origin-right drop-shadow-lg"
+                                className="h-20 w-auto object-contain origin-left rtl:origin-right drop-shadow-lg"
                                 onError={(e) => {
                                     e.currentTarget.style.display = 'none';
                                     e.currentTarget.parentElement?.querySelector('.fallback-logo')?.classList.remove('hidden');
@@ -84,7 +75,7 @@ export function Navigation() {
 
                         {/* RIGHT: Desktop Navigation - Far Right */}
                         <div className="hidden md:flex md:items-center md:gap-6 rtl:gap-6">
-                            {isAuthenticated && !isLandingPage && (
+                            {shouldShowProtectedLinks && (
                                 <button
                                     onClick={() => setIsCardModalOpen(true)}
                                     className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-[#10B981]/50 transition-all shadow-lg hover:shadow-[#10B981]/10 group"
@@ -126,19 +117,21 @@ export function Navigation() {
                                         {language === 'ar' ? 'لوحة التحكم' : 'Tableau de bord'}
                                     </Link>
                                 ) : (
-                                    <div className="flex items-center gap-4">
+                                    !isAuthRoute && (
                                         <button
                                             onClick={handleLogout}
                                             className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm transition-all border border-slate-700"
                                         >
                                             {language === 'ar' ? 'خروج' : 'Déconnexion'}
                                         </button>
-                                    </div>
+                                    )
                                 )
                             ) : (
-                                <Link href="/login" className="px-4 py-2 rounded-lg bg-[#10B981] hover:bg-[#059669] text-[#0F172A] font-bold text-sm transition-all shadow-lg shadow-[#10B981]/20 hover:shadow-[#10B981]/30 hover:-translate-y-0.5">
-                                    {language === 'ar' ? 'تسجيل الدخول' : 'Connexion'}
-                                </Link>
+                                !isAuthRoute && (
+                                    <Link href="/login" className="px-5 py-2.5 rounded-lg bg-[#10B981] hover:bg-[#059669] text-[#0F172A] font-bold text-sm transition-all shadow-lg shadow-[#10B981]/20 hover:shadow-[#10B981]/30 hover:-translate-y-0.5">
+                                        {language === 'ar' ? 'تسجيل الدخول' : 'Connexion'}
+                                    </Link>
+                                )
                             )}
                         </div>
 
@@ -168,7 +161,7 @@ export function Navigation() {
                 {isMobileMenuOpen && (
                     <div className="md:hidden bg-[#020617] border-t border-white/5 absolute w-full shadow-2xl" style={{ zIndex: 9999 }}>
                         <div className="px-4 pt-2 pb-4 space-y-1">
-                            {isAuthenticated && !isLandingPage && (
+                            {shouldShowProtectedLinks && (
                                 <button
                                     onClick={() => {
                                         setIsCardModalOpen(true);
@@ -181,6 +174,20 @@ export function Navigation() {
                                         {language === 'ar' ? 'بطاقتي الرقمية' : 'Ma Carte Visite'}
                                     </span>
                                 </button>
+                            )}
+
+                            {/* Mobile Auth button */}
+                            {!isAuthenticated && !isAuthRoute && (
+                                <Link
+                                    href="/login"
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className="flex items-center gap-3 px-3 py-3 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                                >
+                                    <LogOut className="w-5 h-5 rotate-180" />
+                                    <span className={`text-base font-bold ${language === 'ar' ? 'font-cairo' : 'font-sans'}`}>
+                                        {language === 'ar' ? 'تسجيل الدخول' : 'Connexion'}
+                                    </span>
+                                </Link>
                             )}
 
                             {navItems.map((item) => (
@@ -197,7 +204,7 @@ export function Navigation() {
                                 </Link>
                             ))}
 
-                            {isAuthenticated && !isLandingPage && (
+                            {isAuthenticated && !isLandingPage && !isAuthRoute && (
                                 <button
                                     onClick={() => {
                                         handleLogout();

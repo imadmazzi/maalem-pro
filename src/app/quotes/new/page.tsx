@@ -12,6 +12,8 @@ import { format } from 'date-fns';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { generateQuotePDF } from '@/lib/pdfGenerator';
+import { Download } from 'lucide-react';
 
 const SignatureCanvasComponent = dynamic(() => import('@/components/SignatureCanvasComponent'), {
     loading: () => <p className="text-center p-4 text-slate-400">Chargement de la zone de signature...</p>,
@@ -239,7 +241,7 @@ export default function NewQuotePage() {
     // LIVE PREVIEW COMPONENT
     const LivePreview = () => (
         <div
-            className="bg-white text-black p-8 shadow-2xl rounded-sm min-h-[297mm] w-full relative font-sans text-xs sm:text-sm mx-auto"
+            className="bg-white text-black p-8 shadow-2xl rounded-sm min-h-[297mm] w-[210mm] relative font-sans text-xs sm:text-sm mx-auto overflow-hidden text-left"
             dir={language === 'ar' ? 'rtl' : 'ltr'}
         >
             {/* Header */}
@@ -343,23 +345,43 @@ export default function NewQuotePage() {
         <div className="min-h-screen bg-[#0F172A] text-slate-200 pb-20">
             {/* Full Screen Preview Modal */}
             {isFullscreenPreview && (
-                <div className="fixed inset-0 z-[100] bg-black p-4 overflow-y-auto flex justify-center">
-                    <div className="w-full max-w-4xl relative">
+                <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md overflow-hidden w-screen h-screen flex flex-col">
+                    <div className="flex justify-between items-center p-4 bg-slate-900/80 border-b border-slate-800 z-10">
+                        <Button
+                            onClick={() => {
+                                const { quote, profile } = getQuoteObject();
+                                generateQuotePDF(quote, profile);
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg gap-2 font-bold"
+                        >
+                            <Download className="w-4 h-4" />
+                            Télécharger PDF
+                        </Button>
                         <Button
                             onClick={() => setIsFullscreenPreview(false)}
-                            className="absolute -top-2 -right-2 sm:fixed sm:top-4 sm:right-4 z-50 bg-white text-black hover:bg-slate-200 rounded-full shadow-xl"
+                            className="bg-white text-black hover:bg-slate-200 rounded-full shadow-xl"
                             size="icon"
                         >
                             <X className="w-6 h-6" />
                         </Button>
-                        <div className="scale-[0.8] sm:scale-100 origin-top">
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto overflow-x-hidden p-0 flex flex-col items-center">
+                        <div
+                            className="shadow-2xl bg-white my-4 transition-transform duration-300"
+                            style={{
+                                width: '100%',
+                                maxWidth: '210mm',
+                                touchAction: 'pan-y'
+                            }}
+                        >
                             <LivePreview />
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 h-screen-minus-header">
+            <div className="w-full px-4 sm:px-6 lg:px-8 py-8 h-screen-minus-header">
                 {/* Top Header */}
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-4">
@@ -444,7 +466,7 @@ export default function NewQuotePage() {
                         <Button
                             onClick={() => setIsUpgradeModalOpen(true)}
                             size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg px-4 h-9 text-xs transition-all hover:scale-105 shadow-lg shadow-emerald-500/20"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg px-4 h-9 text-xs transition-all shadow-lg shadow-emerald-500/20"
                         >
                             {language === 'ar' ? 'ترقية' : 'Upgrade'}
                         </Button>
@@ -473,10 +495,8 @@ export default function NewQuotePage() {
                                 </Button>
                             </div>
                         </div>
-                        <div className="w-full h-full overflow-hidden flex justify-center pt-0">
-                            <div className={cn(
-                                "scale-[0.55] sm:scale-[0.60] xl:scale-[0.65] shadow-2xl min-h-[297mm] w-[210mm] transition-all duration-300 origin-top",
-                            )}>
+                        <div className="w-full h-full overflow-auto flex justify-center pt-0">
+                            <div className="shadow-2xl min-h-[297mm] w-full max-w-[210mm] bg-white transition-all duration-300">
                                 <LivePreview />
                             </div>
                         </div>
@@ -787,119 +807,129 @@ export default function NewQuotePage() {
 
                 {/* Mobile Preview Modal */}
                 {showPreviewMobile && (
-                    <div className="fixed inset-0 z-50 bg-[#0F172A] overflow-y-auto lg:hidden">
-                        <div className="p-4">
-                            <div className="flex justify-between items-center mb-6 sticky top-0 bg-[#0F172A] py-4 z-10 border-b border-slate-800">
-                                <h2 className="text-white font-bold text-lg">Aperçu du Devis</h2>
-                                <Button onClick={() => setShowPreviewMobile(false)} variant="ghost" size="icon">
-                                    <X className="w-6 h-6 text-white" />
-                                </Button>
+                    <div className="fixed inset-0 z-50 bg-[#0F172A] w-screen h-screen overflow-hidden lg:hidden flex flex-col">
+                        <div className="flex justify-between items-center p-4 bg-[#1E293B] border-b border-slate-800 z-10">
+                            <Button
+                                onClick={() => {
+                                    const { quote, profile } = getQuoteObject();
+                                    generateQuotePDF(quote, profile);
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg gap-2 font-bold"
+                            >
+                                <Download className="w-4 h-4" />
+                                Télécharger PDF
+                            </Button>
+                            <Button onClick={() => setShowPreviewMobile(false)} variant="ghost" size="icon">
+                                <X className="w-6 h-6 text-white" />
+                            </Button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden p-0 flex flex-col items-center">
+                            <div
+                                className="shadow-2xl bg-white my-4 transition-transform duration-300"
+                                style={{
+                                    width: '100%',
+                                    maxWidth: '210mm',
+                                    touchAction: 'pan-y'
+                                }}
+                            >
+                                <LivePreview />
                             </div>
-                            <div className="bg-slate-200/50 rounded-sm overflow-x-auto flex justify-center py-8">
-                                <div className="min-w-[210mm] shadow-xl">
-                                    <LivePreview />
+                        </div>
+                    </div>
+                )}
+
+                {/* Deposit Alert Modal */}
+                {showDepositAlert && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <div className="bg-[#1E293B] border border-amber-500/30 rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in duration-300">
+                            <div className="p-6 text-center space-y-6">
+                                <div className="mx-auto w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center">
+                                    <AlertCircle className="w-8 h-8 text-amber-500" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-white mb-2 font-readex">
+                                        {language === 'ar' ? 'تنبيه: لم يتم تسجيل العربون' : 'Attention : Aucune avance'}
+                                    </h3>
+                                    <p className="text-slate-400 font-readex text-lg leading-relaxed">
+                                        {language === 'ar'
+                                            ? 'واش خديتي العربون؟ ما تنساش تقيدو باش ينقص من الحساب الإجمالي.'
+                                            : 'Avez-vous reçu une avance ? N\'oubliez pas de l\'ajouter pour déduire du montant total.'}
+                                    </p>
+                                </div>
+                                <div className="flex flex-col gap-3">
+                                    <Button
+                                        className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 text-lg rounded-lg shadow-lg font-readex"
+                                        onClick={() => {
+                                            setShowDepositAlert(false);
+                                            depositInputRef.current?.focus();
+                                        }}
+                                    >
+                                        {language === 'ar' ? 'إضافة عربون' : 'Ajouter une avance'}
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        className="w-full text-slate-500 hover:text-white"
+                                        onClick={() => {
+                                            setShowDepositAlert(false);
+                                            processWhatsAppShare();
+                                        }}
+                                    >
+                                        {language === 'ar' ? 'متابعة بدون عربون' : 'Continuer sans avance'}
+                                    </Button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                )
-                }
+                )}
 
-                {/* Deposit Alert Modal */}
-                {
-                    showDepositAlert && (
-                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                            <div className="bg-[#1E293B] border border-amber-500/30 rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300">
-                                <div className="p-6 text-center space-y-6">
-                                    <div className="mx-auto w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center">
-                                        <AlertCircle className="w-8 h-8 text-amber-500" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-bold text-white mb-2 font-readex">
-                                            {language === 'ar' ? 'تنبيه: لم يتم تسجيل العربون' : 'Attention : Aucune avance'}
-                                        </h3>
-                                        <p className="text-slate-400 font-readex text-lg leading-relaxed">
-                                            {language === 'ar'
-                                                ? 'واش خديتي العربون؟ ما تنساش تقيدو باش ينقص من الحساب الإجمالي.'
-                                                : 'Avez-vous reçu une avance ? N\'oubliez pas de l\'ajouter pour déduire du montant total.'}
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-col gap-3">
-                                        <Button
-                                            className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 text-lg rounded-lg shadow-lg font-readex"
-                                            onClick={() => {
-                                                setShowDepositAlert(false);
-                                                depositInputRef.current?.focus();
-                                            }}
-                                        >
-                                            {language === 'ar' ? 'إضافة عربون' : 'Ajouter une avance'}
-                                        </Button>
+                {/* Upgrade Modal */}
+                {isUpgradeModalOpen && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <div className="bg-[#1E293B] border border-slate-700 rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in duration-300">
+                            <div className="p-6 text-center space-y-6">
+                                <div className="mx-auto w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center">
+                                    <Crown className="w-8 h-8 text-purple-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-white mb-2 font-readex">
+                                        {language === 'ar' ? 'لقد استنفدت الدوفيات المجانية' : 'Free Quota Exceeded'}
+                                    </h3>
+                                    <p className="text-slate-400 font-readex text-lg leading-relaxed">
+                                        {language === 'ar' ? 'اشترك الآن للاستفادة من عدد غير محدود' : 'Upgrade now to unlock unlimited quotes and premium features.'}
+                                    </p>
+                                </div>
+                                <div className="flex flex-col gap-3">
+                                    <Button
+                                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-6 text-lg rounded-lg shadow-lg font-readex"
+                                        onClick={() => window.open('https://maalempro.com/upgrade', '_blank')}
+                                    >
+                                        {language === 'ar' ? 'اشترك الآن' : 'Upgrade Now'}
+                                    </Button>
+                                    <Button
+                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 text-sm rounded-lg shadow-lg font-readex mt-2"
+                                        onClick={() => {
+                                            setSubscriptionStatus('PRO');
+                                            setIsUpgradeModalOpen(false);
+                                            alert("Subscription Upgraded to PRO (Simulated)");
+                                        }}
+                                    >
+                                        {language === 'ar' ? 'تفعيل النسخة الاحترافية (تجريبي)' : 'Activate PRO (Dev Sim)'}
+                                    </Button>
+                                    <Link href="/dashboard" className="w-full">
                                         <Button
                                             variant="ghost"
                                             className="w-full text-slate-500 hover:text-white"
-                                            onClick={() => {
-                                                setShowDepositAlert(false);
-                                                processWhatsAppShare();
-                                            }}
                                         >
-                                            {language === 'ar' ? 'متابعة بدون عربون' : 'Continuer sans avance'}
+                                            {language === 'ar' ? 'الرجوع للرئيسية' : 'Back to Dashboard'}
                                         </Button>
-                                    </div>
+                                    </Link>
                                 </div>
                             </div>
                         </div>
-                    )
-                }
-
-                {/* Upgrade Modal */}
-                {
-                    isUpgradeModalOpen && (
-                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                            <div className="bg-[#1E293B] border border-slate-700 rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300">
-                                <div className="p-6 text-center space-y-6">
-                                    <div className="mx-auto w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center">
-                                        <Crown className="w-8 h-8 text-purple-400" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-bold text-white mb-2 font-readex">
-                                            {language === 'ar' ? 'لقد استنفدت الدوفيات المجانية' : 'Free Quota Exceeded'}
-                                        </h3>
-                                        <p className="text-slate-400 font-readex text-lg leading-relaxed">
-                                            {language === 'ar' ? 'اشترك الآن للاستفادة من عدد غير محدود' : 'Upgrade now to unlock unlimited quotes and premium features.'}
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-col gap-3">
-                                        <Button
-                                            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-6 text-lg rounded-lg shadow-lg font-readex"
-                                            onClick={() => window.open('https://maalempro.com/upgrade', '_blank')}
-                                        >
-                                            {language === 'ar' ? 'اشترك الآن' : 'Upgrade Now'}
-                                        </Button>
-                                        <Button
-                                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 text-sm rounded-lg shadow-lg font-readex mt-2"
-                                            onClick={() => {
-                                                setSubscriptionStatus('PRO');
-                                                setIsUpgradeModalOpen(false);
-                                                alert("Subscription Upgraded to PRO (Simulated)");
-                                            }}
-                                        >
-                                            {language === 'ar' ? 'تفعيل النسخة الاحترافية (تجريبي)' : 'Activate PRO (Dev Sim)'}
-                                        </Button>
-                                        <Link href="/dashboard" className="w-full">
-                                            <Button
-                                                variant="ghost"
-                                                className="w-full text-slate-500 hover:text-white"
-                                            >
-                                                {language === 'ar' ? 'الرجوع للرئيسية' : 'Back to Dashboard'}
-                                            </Button>
-                                        </Link>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )
-                }
-            </div >
-        </div >
+                    </div>
+                )}
+            </div>
+        </div>
     );
 }

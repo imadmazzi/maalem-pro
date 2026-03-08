@@ -128,25 +128,37 @@ export default function Dashboard() {
     useEffect(() => {
         if (authLoading) return;
 
-        // ── STRICT AUTH CHECK: If no session, redirect to login ──
+        // ── STRICT AUTH CHECK ──
         if (!user) {
             router.replace('/login');
             return;
         }
 
         // ── If profile incomplete → onboarding ──
-        if (user && !profileComplete) {
+        // Note: we check if business_name is missing.
+        if (!profileComplete) {
             router.replace('/complete-profile');
             return;
         }
 
-        // ── Read display name from supabse profile or local storage fallback ──
         const savedProfile = localStorage.getItem('businessProfile');
         if (savedProfile) {
             const p = JSON.parse(savedProfile);
             setUserName(p.name || '');
         }
     }, [user, profileComplete, authLoading, router]);
+
+    // ── Pre-render Loading State ──
+    if (authLoading || (!user && !authLoading)) {
+        return (
+            <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                    <p className="text-slate-400 text-sm font-cairo">تحميل لوحة التحكم...</p>
+                </div>
+            </div>
+        );
+    }
 
 
 
@@ -250,8 +262,8 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-[#0F172A] text-slate-200 font-cairo">
-            <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+        <div className="min-h-screen bg-[#0F172A] text-slate-200 font-cairo w-full">
+            <div className="w-full px-6 py-8 space-y-8">
 
                 {/* Header Section */}
                 <section className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-700/50">
@@ -342,7 +354,7 @@ export default function Dashboard() {
                         <Button
                             onClick={() => setIsUpgradeModalOpen(true)}
                             size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg px-4 h-9 text-xs transition-all hover:scale-105 shadow-lg shadow-emerald-500/20"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg px-4 h-9 text-xs transition-all shadow-lg shadow-emerald-500/20"
                         >
                             {language === 'ar' ? 'ترقية' : 'Upgrade'}
                         </Button>
@@ -592,7 +604,7 @@ export default function Dashboard() {
                 {/* Upgrade Modal */}
                 {isUpgradeModalOpen && (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                        <div className="bg-[#1E293B] border border-slate-700 rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300">
+                        <div className="bg-[#1E293B] border border-slate-700 rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in duration-300">
                             <div className="p-6 text-center space-y-6">
                                 <div className="mx-auto w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center">
                                     <Crown className="w-8 h-8 text-purple-400" />

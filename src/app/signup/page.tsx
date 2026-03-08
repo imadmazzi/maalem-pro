@@ -4,12 +4,18 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { User, Lock, Mail, Phone, Briefcase, Loader2, Zap, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function SignupPage() {
     const router = useRouter();
+    const { signUp } = useAuth();
+    const { language } = useLanguage();
+
     const [isLoading, setIsLoading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [error, setError] = useState('');
 
     const [formData, setFormData] = useState({
         fullName: '',
@@ -22,33 +28,25 @@ export default function SignupPage() {
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
+        setError('');
 
-        // Simulate signup API call
-        setTimeout(() => {
-            // 1. Save User Data (Simulate Backend)
-            const userData = { ...formData, createdAt: new Date().toISOString() };
-            localStorage.setItem('registeredUser', JSON.stringify(userData));
+        const { error: signUpError } = await signUp(formData.email, formData.password, {
+            full_name: formData.fullName,
+            phone: formData.phone,
+            category: formData.category
+        });
 
-            // 2. Auto-Login (Set Session)
-            localStorage.setItem('isAuthenticated', 'true');
-            // Optional: Store profile for Dashboard customization
-            localStorage.setItem('businessProfile', JSON.stringify({
-                name: formData.fullName,
-                phone: formData.phone,
-                address: 'Maroc', // Default
-                email: formData.email,
-                category: formData.category
-            }));
-
+        if (signUpError) {
             setIsLoading(false);
-            console.log('Signup successful:', userData);
-
-            // 3. Show Success & Redirect
+            console.error('[Auth] Signup error:', signUpError.message);
+            setError(signUpError.message);
+        } else {
+            setIsLoading(false);
             setShowSuccess(true);
             setTimeout(() => {
                 router.push('/dashboard');
-            }, 2000); // Wait 2s for popup
-        }, 1500);
+            }, 2000);
+        }
     };
 
     const categories = [
@@ -85,18 +83,7 @@ export default function SignupPage() {
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">الحرفيين المحترفين</span>
                     </h1>
 
-                    <div className="space-y-4 mt-8 text-right">
-                        {[
-                            "أنشئ فواتير احترافية في ثوانٍ",
-                            "نظم مواعيدك وزبنائك بسهولة",
-                            "احصل على تقارير مالية دقيقة"
-                        ].map((feature, idx) => (
-                            <div key={idx} className="flex items-center justify-end gap-3 text-slate-300 font-cairo">
-                                <span>{feature}</span>
-                                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                            </div>
-                        ))}
-                    </div>
+                    {/* Features list removed as per request */}
                 </div>
 
                 {/* Decorative Grid */}
@@ -122,6 +109,13 @@ export default function SignupPage() {
 
                     {/* Form */}
                     <form onSubmit={handleSignup} className="space-y-5 mt-8" dir="rtl">
+
+                        {/* Error Message */}
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm text-center font-cairo animate-in fade-in slide-in-from-top-2">
+                                {error}
+                            </div>
+                        )}
 
                         {/* Full Name */}
                         <div className="space-y-1">

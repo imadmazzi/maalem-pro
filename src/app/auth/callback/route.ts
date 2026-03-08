@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase-server';
 
 /**
  * GET /auth/callback
@@ -13,22 +13,15 @@ import { createClient } from '@supabase/supabase-js';
 export async function GET(request: NextRequest) {
     const requestUrl = new URL(request.url);
     const code = requestUrl.searchParams.get('code');
+    const next = requestUrl.searchParams.get('next') ?? '/dashboard';
     const origin = requestUrl.origin;
 
     if (!code) {
         return NextResponse.redirect(`${origin}/login?error=no_code`);
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-        console.error('[auth/callback] Supabase env vars missing');
-        return NextResponse.redirect(`${origin}/dashboard`);
-    }
-
     try {
-        const supabase = createClient(supabaseUrl, supabaseKey);
+        const supabase = await createClient();
 
         // ── 1. Exchange the OAuth code for a user session ─────
         const { data: { session }, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
@@ -50,7 +43,7 @@ export async function GET(request: NextRequest) {
         if (profileErr) {
             // Table might not exist yet — fall through to dashboard
             console.warn('[auth/callback] profiles query error:', profileErr.message);
-            return NextResponse.redirect(`${origin}/dashboard`);
+            return NextResponse.redirect(`${origin}${next}`);
         }
 
         // Profile is "complete" when business_name is filled in
@@ -59,11 +52,11 @@ export async function GET(request: NextRequest) {
         console.log(`[auth/callback] user ${userId} — profile complete: ${isComplete}`);
 
         return NextResponse.redirect(
-            isComplete ? `${origin}/dashboard` : `${origin}/complete-profile`
+            isComplete ? `${origin}${next}` : `${origin}/complete-profile`
         );
 
     } catch (e) {
         console.error('[auth/callback] unexpected error:', e);
-        return NextResponse.redirect(`${origin}/dashboard`);
+        return NextResponse.redirect(`${origin}${next}`);
     }
 }

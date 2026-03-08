@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { User, Lock, Eye, EyeOff, Loader2, Zap, CheckCircle2, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── Google SVG icon ──────────────────────────────────────
 function GoogleIcon() {
@@ -20,7 +21,8 @@ function GoogleIcon() {
 
 export default function LoginPage() {
     const router = useRouter();
-    const { signInWithGoogle, user, isLoading: authLoading } = useAuth();
+    const { signInWithGoogle, signInWithPassword, user, isLoading: authLoading } = useAuth();
+    const { language } = useLanguage();
 
     const [isLoading, setIsLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
@@ -29,12 +31,21 @@ export default function LoginPage() {
     const [formData, setFormData] = useState({ identifier: '', password: '' });
     const [error, setError] = useState('');
 
-    // If already authenticated (Supabase session or localStorage), redirect
+    // If already authenticated (Supabase session), redirect
     useEffect(() => {
-        if (user) { router.push('/dashboard'); return; }
-        const auth = localStorage.getItem('isAuthenticated');
-        if (auth) router.push('/dashboard');
-    }, [user, router]);
+        if (!authLoading && user) {
+            router.replace('/dashboard');
+        }
+    }, [user, authLoading, router]);
+
+    // Show loading while checking session
+    if (authLoading) {
+        return (
+            <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
+                <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+            </div>
+        );
+    }
 
     // ── Google sign-in ────────────────────────────────────
     const handleGoogleSignIn = async () => {
@@ -44,44 +55,22 @@ export default function LoginPage() {
         // Page will redirect to Google — no need to setGoogleLoading(false)
     };
 
-    // ── Email / phone sign-in (existing localStorage logic) ──
+    // ── Email / phone sign-in (Supabase Auth) ──
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         setError('');
 
-        await new Promise(r => setTimeout(r, 800));
+        const { error } = await signInWithPassword(formData.identifier, formData.password);
 
-        const registeredUserStr = localStorage.getItem('registeredUser');
-        let isAuthenticated = false;
-
-        if (registeredUserStr) {
-            const reg = JSON.parse(registeredUserStr);
-            if (
-                (formData.identifier === reg.email || formData.identifier === reg.phone) &&
-                formData.password === reg.password
-            ) isAuthenticated = true;
+        if (error) {
+            setIsLoading(false);
+            console.error('[Auth] Login error:', error.message);
+            setError(language === 'ar' ? 'معلومات الدخول غير صحيحة. تأكد من البريد وكلمة المرور.' : 'Identifiants incorrects. Vérifiez votre email et mot de passe.');
         } else {
-            isAuthenticated = true; // demo / first-time
-        }
-
-        if (isAuthenticated) {
-            localStorage.setItem('isAuthenticated', 'true');
-            if (!localStorage.getItem('businessProfile')) {
-                localStorage.setItem('businessProfile', JSON.stringify({
-                    name: 'Utilisateur Démo',
-                    phone: formData.identifier,
-                    address: 'Maroc',
-                    email: formData.identifier.includes('@') ? formData.identifier : '',
-                    category: 'General',
-                }));
-            }
             setIsLoading(false);
             setShowSuccess(true);
-            setTimeout(() => router.push('/dashboard'), 1200);
-        } else {
-            setIsLoading(false);
-            setError('Identifiants incorrects. Essayez de créer un compte.');
+            // Redirection is handled by the useEffect watching for 'user'
         }
     };
 

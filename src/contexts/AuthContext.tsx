@@ -1,8 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -23,6 +23,8 @@ interface AuthContextType {
     profileComplete: boolean;          // true when business_name is filled
     isLoading: boolean;
     signInWithGoogle: () => Promise<void>;
+    signInWithPassword: (email: string, pass: string) => Promise<{ error: any }>;
+    signUp: (email: string, pass: string, metadata: any) => Promise<{ error: any }>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>; // call after completing profile form
 }
@@ -39,28 +41,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [profileComplete, setProfileComplete] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Prevent multiple initial loads
+    const initRef = useRef(false);
+
     // ── Load profile from Supabase for a given user ─────────────────────────
     const loadProfile = useCallback(async (u: User) => {
         if (!supabase) return;
+        setIsLoading(true);
         console.log('[Auth] Fetching profile for user:', u.id);
-        const { data, error, status } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', u.id)
-            .maybeSingle();
 
-        if (error) {
-            console.warn('[Auth] profiles fetch error:', error.message, '| status:', status);
+        try {
+            const { data, error, status } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', u.id)
+                .maybeSingle();
+
+            if (error) {
+                console.warn('[Auth] profiles fetch error:', error.message, '| status:', status);
+            }
+
+            const p = data as SupabaseProfile | null;
+            console.log('[Auth] Profile loaded:', p ? `✅ Found (${p.business_name})` : '⚪ No profile found');
+
+            setProfile(p);
+            setProfileComplete(!!p?.business_name);
+
+            // Sync to localStorage.businessProfile so existing pages work
+            syncToLocalStorage(u, p);
+        } catch (err) {
+            console.error('[Auth] Profile fetch exception:', err);
+        } finally {
+            setIsLoading(false);
         }
-
-        const p = data as SupabaseProfile | null;
-        console.log('[Auth] Profile loaded:', p ? `✅ Found (${p.business_name})` : '⚪ No profile found');
-
-        setProfile(p);
-        setProfileComplete(!!p?.business_name);
-
-        // Sync to localStorage.businessProfile so existing pages work
-        syncToLocalStorage(u, p);
     }, []);
 
     // ── Sync Supabase user + profile → localStorage businessProfile ──────────
@@ -88,82 +101,113 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // ── Bootstrap: load session + profile on mount ───────────────────────────
     useEffect(() => {
-        if (!isSupabaseConfigured || !supabase) {
+        if (initRef.current) return;
+        initRef.current = true;
+
+        if (!supabase) {
             setIsLoading(false);
             return;
         }
 
-        supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
-            const s = data.session;
-            setSession(s);
-            setUser(s?.user ?? null);
-            if (s?.user) {
-                loadProfile(s.user).then(() => setIsLoading(false));
-            } else {
-                setIsLoading(false);
-            }
-        });
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (_event: string, s: Session | null) => {
+        const initAuth = async () => {
+            try {
+                const { data: { session: s } } = await supabase.auth.getSession();
                 setSession(s);
                 setUser(s?.user ?? null);
+
                 if (s?.user) {
-                    loadProfile(s.user);
-                    localStorage.setItem('isAuthenticated', 'true');
+                    await loadProfile(s.user);
                 } else {
+                    setIsLoading(false);
+                }
+            } catch (err) {
+                console.error('[Auth] Bootstrap Error:', err);
+                setIsLoading(false);
+            }
+        };
+
+        initAuth();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event: string, s: Session | null) => {
+                console.log('[Auth] Event:', event);
+
+                if (event === 'SIGNED_OUT') {
+                    setSession(null);
+                    setUser(null);
                     setProfile(null);
                     setProfileComplete(false);
+                    setIsLoading(false);
                     localStorage.removeItem('isAuthenticated');
+                    localStorage.removeItem('businessProfile');
+                    // Explicitly NOT pushing to login here to avoid loops, let middleware handle it
+                } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+                    if (s?.user) {
+                        setSession(s);
+                        setUser(s.user);
+                        router.refresh(); // Tell Next.js to fetch the new cookies
+                        // Only fetch if profile is not already loaded or if it's a new user
+                        await loadProfile(s.user);
+                    }
+                } else if (event === 'INITIAL_SESSION') {
+                    // Ignore initial session event to prevent redirects
                 }
             }
         );
 
         return () => subscription.unsubscribe();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [loadProfile]);
 
-    // ── Google OAuth ─────────────────────────────────────────────────────────
     const signInWithGoogle = async () => {
-        if (!isSupabaseConfigured || !supabase) {
-            console.error('[Auth] Supabase not configured');
-            return;
-        }
+        if (!supabase) return;
+        const getSafeOrigin = () => window.location.origin.replace('//0.0.0.0', '//localhost');
+        const redirectTo = `${getSafeOrigin()}/auth/callback?next=/dashboard`;
 
-        /** Normalize 0.0.0.0 → localhost so OAuth redirect works in dev */
-        const getSafeOrigin = () =>
-            window.location.origin.replace('//0.0.0.0', '//localhost');
-
-        const redirectTo = `${getSafeOrigin()}/dashboard`;
-        console.log('[Auth] OAuth redirectTo:', redirectTo);
-
-        const { error } = await supabase.auth.signInWithOAuth({
+        await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
                 redirectTo,
                 queryParams: { access_type: 'offline', prompt: 'consent' },
             },
         });
-        if (error) console.error('[Auth] Google sign-in error:', error);
     };
 
-    // ── Sign Out ─────────────────────────────────────────────────────────────
+    const signInWithPassword = async (email: string, pass: string) => {
+        if (!supabase) return { error: { message: 'Supabase not ready' } };
+        const { error, data } = await supabase.auth.signInWithPassword({ email, password: pass });
+        
+        if (!error && data?.user) {
+            router.push('/dashboard');
+            router.refresh(); 
+        }
+        
+        return { error };
+    };
+
+    const signUp = async (email: string, pass: string, metadata: any) => {
+        if (!supabase) return { error: { message: 'Supabase not ready' } };
+        return await supabase.auth.signUp({
+            email,
+            password: pass,
+            options: { data: metadata }
+        });
+    };
+
     const signOut = async () => {
         if (supabase) await supabase.auth.signOut();
         localStorage.removeItem('isAuthenticated');
-        localStorage.removeItem('businessProfile'); // Clear local cache on logout
+        localStorage.removeItem('businessProfile');
         setUser(null);
         setSession(null);
         setProfile(null);
         setProfileComplete(false);
-        // Using window.location.href for a hard redirect to clear all states/cache
         window.location.href = '/login';
     };
 
     return (
         <AuthContext.Provider value={{
             user, session, profile, profileComplete,
-            isLoading, signInWithGoogle, signOut, refreshProfile,
+            isLoading, signInWithGoogle, signInWithPassword, signUp, signOut, refreshProfile,
         }}>
             {children}
         </AuthContext.Provider>

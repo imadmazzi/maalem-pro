@@ -54,10 +54,15 @@ export default function CompleteProfilePage() {
         category: 'autre',
     });
 
-    // If profile already complete, skip straight to dashboard
+    // ── GUARD: Only allow authenticated users without profiles ──
     useEffect(() => {
-        if (!isLoading && profileComplete) router.replace('/dashboard');
-    }, [profileComplete, router, isLoading]);
+        if (isLoading) return;
+        if (!user) {
+            router.replace('/login');
+        } else if (profileComplete && !done) {
+            router.replace('/dashboard');
+        }
+    }, [user, profileComplete, isLoading, router, done]);
 
     // Pre-fill name from Google metadata
     useEffect(() => {
@@ -145,7 +150,9 @@ export default function CompleteProfilePage() {
             await refreshProfile();
             setDone(true);
             setIsSubmitting(false);
-            setTimeout(() => router.push('/dashboard'), 1400);
+
+            // Short delay to show the success checkmark
+            setTimeout(() => router.replace('/dashboard'), 1800);
 
         } catch (err: any) {
             console.error('[CompleteProfile] Unexpected Exception:', err);
@@ -278,13 +285,7 @@ export default function CompleteProfilePage() {
                                 {isSubmitting ? <><Loader2 className="w-5 h-5 animate-spin" /> جاري الحفظ...</> : <><span>حفظ والمتابعة</span> <ChevronRight className="w-5 h-5" /></>}
                             </button>
 
-                            <button
-                                type="button"
-                                onClick={() => router.push('/dashboard')}
-                                className="w-full text-center text-slate-500 hover:text-slate-300 text-xs transition-colors py-1"
-                            >
-                                تخطي الآن، سأكمل لاحقاً
-                            </button>
+                            {/* Skip button removed to prevent redirect loops. Profile is mandatory for Dashboard features. */}
                         </form>
                     )}
                 </div>

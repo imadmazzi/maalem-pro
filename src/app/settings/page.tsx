@@ -110,7 +110,7 @@ export default function SettingsPage() {
                         disabled={isSaving}
                         className={cn(
                             "gap-2 text-white shadow-lg border-0 font-jakarta transition-all duration-300",
-                            isSaving ? "bg-slate-600 scale-95" : "bg-[#10B981] hover:bg-[#059669] shadow-[#10B981]/20"
+                            isSaving ? "bg-slate-600 opacity-80" : "bg-[#10B981] hover:bg-[#059669] shadow-[#10B981]/20"
                         )}
                     >
                         {isSaving ? (

@@ -10,7 +10,10 @@
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
+    "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.97.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.36.2",
     "arabic-reshaper": "^1.1.0",
     "bidi-js": "^1.0.3",
     "class-variance-authority": "^0.7.1",

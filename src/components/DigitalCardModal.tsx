@@ -443,7 +443,8 @@ export function DigitalCardModal({ isOpen, onClose }: DigitalCardModalProps) {
                             ref={cardRef}
                             style={{
                                 width: '100%', maxWidth: 420,
-                                height: 240,
+                                height: 'auto',
+                                minHeight: 240,
                                 borderRadius: 14,
                                 overflow: 'hidden',
                                 flexShrink: 0,
@@ -451,10 +452,7 @@ export function DigitalCardModal({ isOpen, onClose }: DigitalCardModalProps) {
                                 position: 'relative',
                                 background: cardBg,
                                 boxShadow: cardShadow,
-                                /* Scale down on very small screens so card fits without horizontal scroll */
-                                transform: isSmallScreen ? 'scale(0.85)' : 'scale(1)',
-                                transformOrigin: 'top center',
-                                marginBottom: isSmallScreen ? '-36px' : 0,
+                                marginBottom: 0,
                             }}
                         >
                             {/* Top accent stripe */}
