@@ -18,23 +18,21 @@ export async function middleware(request: NextRequest) {
           response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options })
+          // هنا التصحيح: كنعطيو قيمة خاوية '' بلاصة value
+          request.cookies.set({ name, value: '', ...options })
           response = NextResponse.next({ request: { headers: request.headers } })
-          response.cookies.set({ name, value, ...options })
+          response.cookies.set({ name, value: '', ...options })
         },
       },
     }
   )
 
-  // هادي هي أهم دالة كتقرا الـ User الحقيقي
   const { data: { user } } = await supabase.auth.getUser()
 
-  // إيلا كان غادي لـ Dashboard وهو ما مسجلش -> لـ Login
   if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // إيلا كان مسجل وبغى يدخل لـ Login -> لـ Dashboard
   if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup')) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
